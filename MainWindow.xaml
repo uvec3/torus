@@ -1,0 +1,200 @@
+﻿<Window x:Class="TorusSimulation.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Torus" Height="1024" Width="720" WindowState="Maximized">
+    <Grid x:Name="grid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="3*" />
+        </Grid.ColumnDefinitions>
+        <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Top">
+                <Label x:Name="lbFrameTime" FontSize="30">0</Label>
+                <ToggleButton x:Name="tbPlayPause" IsChecked="True" HorizontalAlignment="Stretch" Margin="7"
+                              Checked="TbPlayPause_Checked" Unchecked="TbPlayPause_Unchecked">
+                    Pause
+                </ToggleButton>
+                <Label x:Name="lbSpeed" Content="Simulation speed: 1.00" />
+                <Slider Minimum="-10" Maximum="10" Value="1" SmallChange="0.1" LargeChange="1" x:Name="sliderSpeed"
+                        TickFrequency="1" TickPlacement="BottomRight"
+                        ValueChanged="SliderSimulationSpeed_OnValueChanged" />
+
+                <Button Click="btResetClick" Margin="15" HorizontalAlignment="Stretch"> Reset </Button>
+                <Label>Parameters presets:</Label>
+                <ComboBox x:Name="comboPresets" Width="200" Margin="4" HorizontalAlignment="Left"
+                          SelectionChanged="ComboPresets_SelectionChanged" />
+
+
+                <ToggleButton x:Name="btnGraphics" Content="Graphics settings" Width="120" Margin="7"
+                              HorizontalAlignment="Left" />
+                <Popup x:Name="popupGraphics" PlacementTarget="{Binding ElementName=btnGraphics}" Placement="Right"
+                       AllowsTransparency="True" PopupAnimation="Slide" StaysOpen="False"
+                       IsOpen="{Binding IsChecked, ElementName=btnGraphics, Mode=TwoWay}">
+                    <Border Background="LightGray" BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="4">
+                        <StackPanel Width="300">
+                            <Label>Show face: </Label>
+                            <StackPanel Orientation="Horizontal">
+                                <RadioButton Checked="rbBoth">both</RadioButton>
+                                <RadioButton IsChecked="True" Checked="rbFront">front</RadioButton>
+                                <RadioButton Checked="rbBack">back</RadioButton>
+                            </StackPanel>
+                            <ComboBox Name="comboResolution" SelectionChanged="ResolutionChanged">
+                                <ComboBoxItem Content="256x256" />
+                                <ComboBoxItem Content="512x512" />
+                                <ComboBoxItem Content="768x768" IsSelected="True" />
+                                <ComboBoxItem Content="1024x1024" />
+                                <ComboBoxItem Content="1920x1080" />
+                                <ComboBoxItem Content="2560x1440" />
+                            </ComboBox>
+
+                            <Label>Background:</Label>
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Label>R:</Label>
+                                <Slider Minimum="0" Maximum="255" Value="0" SmallChange="1" LargeChange="10"
+                                        x:Name="slbgR"
+                                        Width="180"
+                                        TickFrequency="1" TickPlacement="BottomRight"
+                                        ValueChanged="backgroundColorUpdate" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label>G:</Label>
+                                <Slider Minimum="0" Maximum="255" Value="0" SmallChange="1" LargeChange="10"
+                                        x:Name="slbgG"
+                                        Width="180"
+                                        TickFrequency="1" TickPlacement="BottomRight"
+                                        ValueChanged="backgroundColorUpdate" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Label>B:</Label>
+                                <Slider Minimum="0" Maximum="255" Value="0" SmallChange="1" LargeChange="10"
+                                        x:Name="slbgB"
+                                        Width="180"
+                                        TickFrequency="1" TickPlacement="BottomRight"
+                                        ValueChanged="backgroundColorUpdate" />
+                            </StackPanel>
+
+                            <Label>Light:</Label>
+                            <CheckBox x:Name="cbLight" Click="CbLight_OnClick" IsChecked="True">Enable lighting</CheckBox>
+                            <Label>Ambient intensity:</Label>
+                            <Slider Minimum="0" Maximum="1" Value="0.1" SmallChange="0.01" LargeChange="0.1"
+                                    x:Name="slAmbientIntensity" Width="180"
+                                    TickFrequency="0.1" TickPlacement="BottomRight"
+                                    ValueChanged="slAmbientIntensity_OnValueChanged" />
+
+                            <Label>Light diffuse intensity:</Label>
+                            <Slider x:Name="slLight1Intensity" Minimum="0" Maximum="10" Value="0" Width="180"
+                                    ValueChanged="SlLight1Intensity_OnValueChanged" />
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <CheckBox Name="cbCameraFollow" Margin="6" IsChecked="True"> Move camera </CheckBox>
+
+
+                <ToggleButton x:Name="btnParams" Content="Show Parameters" Width="120" Margin="10"
+                              HorizontalAlignment="Left" />
+                <Label>Model state:</Label>
+
+                <Popup x:Name="popupParams" PlacementTarget="{Binding ElementName=btnParams}" Placement="Right"
+                       AllowsTransparency="True" PopupAnimation="Slide" StaysOpen="False"
+                       IsOpen="{Binding IsChecked, ElementName=btnParams, Mode=TwoWay}">
+                    <Border Background="LightGray" BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="4">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" CanContentScroll="True" Width="260"
+                                      MaxHeight="900">
+                            <StackPanel>
+                                <Label x:Name="txtDelta" ToolTip="Contact patch deformation radius used to generate rolling friction torque.">delta:    0.06</Label>
+                                <Slider x:Name="delta" Minimum="0" Maximum="0.2" Value="0.06"
+                                        ToolTip="Delta (0 to 0.2): larger values increase rolling resistance from deformation."
+                                        ValueChanged="Delta_OnValueChanged" />
+
+                                <Label x:Name="txtMu" ToolTip="Surface friction coefficient between the torus and the floor.">mu:    1</Label>
+                                <Slider x:Name="mu" Minimum="0" Maximum="5" Value="0.3"
+                                        ToolTip="Mu (0 to 5): higher values increase sliding friction force."
+                                        ValueChanged="Mu_OnValueChanged" />
+
+
+                                <Label x:Name="txtG" ToolTip="Gravity acceleration magnitude.">g:    1.0</Label>
+                                <Slider x:Name="g" Minimum="0" Maximum="1000" Value="10"
+                                        ToolTip="g (0 to 1000): controls gravity strength applied downward."
+                                        ValueChanged="g_OnValueChanged" />
+
+                                <Label x:Name="txtMass" ToolTip="Rigid body mass of the torus.">Mass:    1.0</Label>
+                                <Slider x:Name="sliderMass" Minimum="0.01" Maximum="1000" Value="1"
+                                        ToolTip="Mass (0.01 to 1000): affects inertia and linear acceleration from forces."
+                                        ValueChanged="SliderMass_OnValueChanged" />
+
+                                <Label x:Name="txtOuterR" ToolTip="Outer diameter radius of the torus profile.">Outer radius:    1.0</Label>
+                                <Slider x:Name="sliderOuterR" Minimum="0.2" Maximum="10" Value="2.0"
+                                        ToolTip="Outer radius (0.2 to 10): increases overall torus size."
+                                        ValueChanged="SliderOuterR_OnValueChanged" />
+
+                                <Label x:Name="txtInnerR" ToolTip="Inner hole radius of the torus.">Inner radius:    1.0</Label>
+                                <Slider x:Name="sliderInnerR" Minimum="0.1" Maximum="10" Value="0.5"
+                                        ToolTip="Inner radius (0.1 to 10): adjusts tube thickness relative to outer radius."
+                                        ValueChanged="SliderInnerR_OnValueChanged" />
+
+                                <Label x:Name="txtAbsorption" ToolTip="Energy absorbed during collision with the ground.">Absorption:    0.0</Label>
+                                <Slider x:Name="absorption" Minimum="0" Maximum="0.9" Value="0"
+                                        ToolTip="Absorption (0 to 0.9): higher values damp bounce and vertical rebound speed."
+                                        ValueChanged="Absorption_OnValueChanged" />
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </Popup>
+            </StackPanel>
+
+            <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <Label x:Name="txtAngle1">ϕ:    0.0</Label>
+                    <Slider x:Name="angle1" Minimum="-360" Maximum="360" Value="0" Tag="1"
+                            ValueChanged="Angle1_OnValueChanged" />
+                    <Label x:Name="txtAngle2">θ:    0.0</Label>
+                    <Slider x:Name="angle2" Minimum="-360" Maximum="360" Value="0" Tag="2"
+                            ValueChanged="Angle2_OnValueChanged" />
+                    <Label x:Name="txtAngle3"> ψ:   0.0</Label>
+                    <Slider x:Name="angle3" Minimum="-360" Maximum="360" Value="0" Tag="3"
+                            ValueChanged="Angle3_OnValueChanged" />
+
+
+                    <Label x:Name="txtAimX">Aim x:    1.0</Label>
+                    <Slider x:Name="posX" Minimum="-100" Maximum="100" Value="-1" Tag="1"
+                            ValueChanged="Position_OnValueChanged" />
+                    <Label x:Name="txtAimY">Aim y:    1.0</Label>
+                    <Slider x:Name="posY" Minimum="-100" Maximum="100" Value="1" Tag="2"
+                            ValueChanged="Position_OnValueChanged" />
+                    <Label x:Name="txtAimZ">Aim z:    1.0</Label>
+                    <Slider x:Name="posZ" Minimum="-100" Maximum="100" Value="-1" Tag="3"
+                            ValueChanged="Position_OnValueChanged" />
+
+
+                    <Label x:Name="txtOmegaX">Omega x:    0.0</Label>
+                    <Slider x:Name="omegaX" Minimum="-10" Maximum="10" Value="0" Tag="3"
+                            ValueChanged="OmegaX_OnValueChanged" />
+
+                    <Label x:Name="txtOmegaY">Omega y:    0.0</Label>
+                    <Slider x:Name="omegaY" Minimum="-10" Maximum="10" Value="0" Tag="3"
+                            ValueChanged="OmegaY_OnValueChanged" />
+
+                    <Label x:Name="txtOmegaZ">Omega z:    0.0</Label>
+                    <Slider x:Name="omegaZ" Minimum="-10" Maximum="10" Value="0" Tag="3"
+                            ValueChanged="OmegaZ_OnValueChanged" />
+
+                    <Label x:Name="txtVx">Vx:    0.0</Label>
+                    <Slider x:Name="Vx" Minimum="-10" Maximum="10" Value="0"
+                            ValueChanged="Vx_OnValueChanged" />
+
+                    <Label x:Name="txtVy">Vy:    0.0</Label>
+                    <Slider x:Name="Vy" Minimum="-10" Maximum="10" Value="0"
+                            ValueChanged="Vy_OnValueChanged" />
+
+                    <Label x:Name="txtVz">Vz:    0.0</Label>
+                    <Slider x:Name="Vz" Minimum="-10" Maximum="10" Value="0"
+                            ValueChanged="Vz_OnValueChanged" />
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+    </Grid>
+</Window>

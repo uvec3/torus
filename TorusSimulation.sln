@@ -1,0 +1,38 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TorusSimulation", "TorusSimulation.csproj", "{43798020-BF3F-4ACF-BB36-3979D06AB424}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		r|Any CPU = r|Any CPU
+		r|x64 = r|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Debug|x64.ActiveCfg = Debug|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Debug|x64.Build.0 = Debug|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.r|Any CPU.ActiveCfg = r|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.r|Any CPU.Build.0 = r|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.r|x64.ActiveCfg = r|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.r|x64.Build.0 = r|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Release|Any CPU.Build.0 = Release|Any CPU
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Release|x64.ActiveCfg = Release|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Release|x64.Build.0 = Release|x64
+		{43798020-BF3F-4ACF-BB36-3979D06AB424}.Release|x64.Deploy.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8C994EA9-22B4-4B3E-8E2E-7C1A9273953C}
+	EndGlobalSection
+EndGlobal
