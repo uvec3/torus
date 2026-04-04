@@ -18,7 +18,7 @@
                     Pause
                 </ToggleButton>
                 <Label x:Name="lbSpeed" Content="Simulation speed: 1.00" />
-                <Slider Minimum="-10" Maximum="10" Value="1" SmallChange="0.1" LargeChange="1" x:Name="sliderSpeed"
+                <Slider Minimum="0" Maximum="10" Value="1" SmallChange="0.1" LargeChange="1" x:Name="sliderSpeed"
                         TickFrequency="1" TickPlacement="BottomRight"
                         ValueChanged="SliderSimulationSpeed_OnValueChanged" />
 
@@ -91,7 +91,7 @@
                     </Border>
                 </Popup>
 
-                <CheckBox Name="cbCameraFollow" Margin="6" IsChecked="True"> Move camera </CheckBox>
+                <CheckBox Name="cbCameraFollow" Margin="6" IsChecked="False"> Follow with camera </CheckBox>
 
 
                 <ToggleButton x:Name="btnParams" Content="Show Parameters" Width="120" Margin="10"

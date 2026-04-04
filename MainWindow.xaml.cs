@@ -65,7 +65,9 @@ namespace TorusSimulation
             eng.MouseMove += eng_MouseMove;
             eng.MouseDown += eng_MouseDown;
             eng.MouseUp += eng_MouseUp;
-            eng.MouseWheel+= EngOnMouseWheel;
+            eng.MouseWheel += EngOnMouseWheel;
+
+            AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnGlobalPreviewKeyDown), true);
 
             //create meshes
             axis = new Triangle[6];
@@ -102,18 +104,34 @@ namespace TorusSimulation
             }
         }
 
+        private void OnGlobalPreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.IsRepeat)
+                return;
+
+            if (e.Key == Key.Space)
+            {
+                torusModel.state.vel.z = 10;
+                e.Handled = true;
+            }
+
+            if (e.Key == Key.R)
+            {
+                btResetClick(null, null);
+            }
+        }
+
 
         private void create_presets()
         {
-
             TorusModel.Parameters default_params = new TorusModel.Parameters();
             default_params.InnerRadius = 0.8f;
             default_params.OuterRadius = 1.0f;
             default_params.delta = 0.1f;
             default_params.g = 9.8f;
             default_params.m = 10;
-            default_params.mu = 0.35f;
-            default_params.absorption = 0.1f;
+            default_params.mu = 0.3f;
+            default_params.absorption = 0.4f;
 
             TorusModel.State default_state = new TorusModel.State();
             default_state.pos = new vec3(0,0,1);
@@ -123,17 +141,23 @@ namespace TorusSimulation
             presets.Add(("default", default_state, default_params));
 
             TorusModel.State state = default_state;
-            state.vel.x = 5;
-            state.vel.z = 5;
+            state.pos=new vec3(0,0,3);
+            state.omega.x=-30;
+            state.theta = (float)Math.PI/16;
             TorusModel.Parameters parameters = default_params;
-            presets.Add(("p1", state, parameters));
+            //parameters.delta = 0.05f;
+            //parameters.absorption = 0.5f;
+            //parameters.mu = 0.2f;
+
+
+            presets.Add(("roll", state, parameters));
 
             state = default_state;
             state.omega.x = 2;
             parameters = default_params;
             parameters.InnerRadius = 1;
             parameters.OuterRadius = 2;
-            presets.Add(("p2", state, parameters));
+            presets.Add(("coin", state, parameters));
         }
 
         private void draw(object sender, EventArgs e)
@@ -149,13 +173,14 @@ namespace TorusSimulation
 
             //handle keyboard input for wheel rotation
             rotateWithKeyboard(dt);
-            //set camera transform
-            eng.camera.viewTransform = viewTransform;
+
 
             //update wheel state
             torusModel.update(simulation_dt);
-            //updates view to account for camera's angles or wheel movement
+            //updates view transformation
             updateViewTransform();
+            //set camera transform
+            eng.camera.viewTransform = viewTransform;
 
             //draw axis
             Face face = eng.showFace;
@@ -197,6 +222,18 @@ namespace TorusSimulation
                 tbPlayPause.Content = "Play";
         }
 
+        void setSlider(Slider slider, double value)
+        {
+            //modify only if within the range
+            if (slider != null)
+            {
+                if(value >= slider.Minimum && value <= slider.Maximum && slider.Value != value)
+                {
+                    slider.Value = value;
+                }
+            }
+        }
+
         //Syncs state of wheel with UI controls
         void syncStateCallback()
         {
@@ -204,29 +241,29 @@ namespace TorusSimulation
             if(angle1==null)
                 return;
 
-            angle1.Value = (torusModel.state.fi/(float)Math.PI*180)%360;
-            angle2.Value = (torusModel.state.theta/(float)Math.PI*180)%360;
-            angle3.Value = (torusModel.state.psi/(float)Math.PI*180)%360;
+            setSlider(angle1, (torusModel.state.fi/(float)Math.PI*180)%360);
+            setSlider(angle2, (torusModel.state.theta/(float)Math.PI*180)%360);
+            setSlider(angle3, (torusModel.state.psi/(float)Math.PI*180)%360);
 
-            posX.Value = torusModel.state.pos.x;
-            posY.Value = torusModel.state.pos.y;
-            posZ.Value = torusModel.state.pos.z;
+            setSlider(posX, torusModel.state.pos.x);
+            setSlider(posY, torusModel.state.pos.y);
+            setSlider(posZ, torusModel.state.pos.z);
 
             txtAimX.Content = "X: " + torusModel.state.pos.x.ToString("0.000");
             txtAimY.Content = "Y: " + torusModel.state.pos.y.ToString("0.000");
             txtAimZ.Content = "Z: " + torusModel.state.pos.z.ToString("0.000");
 
-            omegaX.Value = torusModel.state.omega.x;
-            omegaY.Value = torusModel.state.omega.y;
-            omegaZ.Value = torusModel.state.omega.z;
+            setSlider(omegaX, torusModel.state.omega.x);
+            setSlider(omegaY, torusModel.state.omega.y);
+            setSlider(omegaZ, torusModel.state.omega.z);
 
             txtOmegaX.Content = "ωx: " + torusModel.state.omega.x.ToString("0.000");
             txtOmegaY.Content = "ωy: " + torusModel.state.omega.y.ToString("0.000");
             txtOmegaZ.Content = "ωz: " + torusModel.state.omega.z.ToString("0.000");
 
-            Vx.Value = torusModel.state.vel.x;
-            Vy.Value = torusModel.state.vel.y;
-            Vz.Value = torusModel.state.vel.z;
+            setSlider(Vx, torusModel.state.vel.x);
+            setSlider(Vy, torusModel.state.vel.y);
+            setSlider(Vz, torusModel.state.vel.z);
 
             txtVx.Content = "Vx: " + torusModel.state.vel.x.ToString("0.000");
             txtVy.Content = "Vy: " + torusModel.state.vel.y.ToString("0.000");
@@ -339,7 +376,7 @@ namespace TorusSimulation
 
             // Copy state
             torusModel.state = preset.Item2;
-            syncStateCallback();
+           // syncStateCallback();
         }
 
         private void SliderSimulationSpeed_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -396,8 +433,11 @@ namespace TorusSimulation
             txtG.Content= "g: " + g.Value.ToString("0.0");
         }
 
+
+
         private void OmegaX_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+
             torusModel.state.omega.x = (float)omegaX.Value;
         }
 
@@ -480,7 +520,7 @@ namespace TorusSimulation
             if(torusModel.parameters.InnerRadius>= torusModel.parameters.OuterRadius)
             {
                 torusModel.parameters.OuterRadius= torusModel.parameters.InnerRadius + 0.01f;
-                sliderOuterR.Value=  torusModel.parameters.OuterRadius;
+                setSlider(sliderOuterR, torusModel.parameters.OuterRadius);
             }
             torusModel.parameters_changed();
             txtInnerR. Content = "Inner Radius: " + sliderInnerR.Value.ToString("0.000");
@@ -492,7 +532,7 @@ namespace TorusSimulation
             if (torusModel.parameters.OuterRadius <= torusModel.parameters.InnerRadius&&sliderInnerR!=null)
             {
                 torusModel.parameters.InnerRadius = torusModel.parameters.OuterRadius - 0.01f;
-                sliderInnerR.Value = torusModel.parameters.InnerRadius;
+                setSlider(sliderInnerR, torusModel.parameters.InnerRadius);
             }
             torusModel.parameters_changed();
             txtOuterR.Content = "Outer Radius: " + sliderOuterR.Value.ToString("0.000");
@@ -549,24 +589,24 @@ namespace TorusSimulation
 
             // Update parameter UI controls if available
             if (sliderMass != null)
-                sliderMass.Value = torusModel.parameters.m;
+                setSlider(sliderMass, torusModel.parameters.m);
             if (sliderInnerR != null)
-                sliderInnerR.Value = torusModel.parameters.InnerRadius;
+                setSlider(sliderInnerR, torusModel.parameters.InnerRadius);
             if (sliderOuterR != null)
-                sliderOuterR.Value = torusModel.parameters.OuterRadius;
+                setSlider(sliderOuterR, torusModel.parameters.OuterRadius);
             if (delta != null)
-                delta.Value = torusModel.parameters.delta;
+                setSlider(delta, torusModel.parameters.delta);
             if (mu != null)
-                mu.Value = torusModel.parameters.mu;
+                setSlider(mu, torusModel.parameters.mu);
             if (g != null)
-                g.Value = torusModel.parameters.g;
+                setSlider(g, torusModel.parameters.g);
             if (absorption != null)
-                absorption.Value = torusModel.parameters.absorption;
+                setSlider(absorption, torusModel.parameters.absorption);
 
 
             // Copy state
             torusModel.state = preset.Item2;
-            syncStateCallback();
+            //syncStateCallback();
         }
     }
 }
