@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using GlmSharp;
 
 namespace TorusSimulation
@@ -216,8 +217,6 @@ namespace TorusSimulation
             }
         }
 
-        public delegate void SyncStateCallback();
-        public SyncStateCallback syncStateCallback;
 
         public State state;
 
@@ -267,28 +266,41 @@ namespace TorusSimulation
             torMesh= Torus.BuildTor((float)parameters.OuterRadius, (float)parameters.InnerRadius, 30, true);
         }
 
+
+        private Thread calculationThread=null;
+
+        private State newState;
         //advance simulation by time dt
         public void update(double dt)
         {
-            double direction = dt < 0?-1:1;
-            dt=Math.Abs(dt);
-            //max allowed dt step for runge kutta
-            double maxStep = 0.001;
-            //number of steps to cover dt
-            int stepsCount= (int)Math.Ceiling(dt/maxStep);
-            //actual step
-            double step = dt/stepsCount;
-
-            for (int i = 0; i < stepsCount; ++i)
+            newState=state;
+            calculationThread = new Thread(() =>
             {
-                state = RungeKutta(state, step*direction);
+                //max allowed dt step for runge kutta
+                double maxStep = 0.0001;
+                //number of steps to cover dt
+                int stepsCount = (int)Math.Ceiling(dt / maxStep);
+                //actual step
+                double step = dt / stepsCount;
+
+                for (int i = 0; i < stepsCount; ++i)
+                {
+                    newState = RungeKutta(newState, step);
+                }
+            });
+            calculationThread.Start();
+        }
+
+        public void syncState()
+        {
+            if (calculationThread != null)
+            {
+                if(calculationThread.IsAlive)
+                    calculationThread.Join();
+                state = newState;
             }
         }
 
-        public void update(float dt)
-        {
-            update((double)dt);
-        }
 
         public double gravitationalPotentialEnergy()
         {

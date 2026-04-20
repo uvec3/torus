@@ -92,7 +92,6 @@ namespace TorusSimulation
             light.position=new vec3(1,0,20);
             eng.LightSources.Add(light);
 
-            torusModel.syncStateCallback= syncStateCallback;
 
             //start time
             prevTime = DateTime.Now.Ticks / (double)TimeSpan.TicksPerSecond;
@@ -178,8 +177,8 @@ namespace TorusSimulation
             parameters = default_params;
             parameters.InnerRadius = 0.5f;
             parameters.absorption = 0.85f;
-            parameters.delta = 0.24f;
-            parameters.k = 100000;
+            parameters.delta = 0.2f;
+            parameters.k = 500000;
             parameters.m = 100;
             parameters.mu = 0.18;
 
@@ -188,7 +187,6 @@ namespace TorusSimulation
             state.theta = (float)(Math.PI / 2.0f);
             state.omega.x = 3;
             state.omega.y = 0.1f;
-
             presets.Add(("Fall", state, parameters));
 
 
@@ -220,15 +218,6 @@ namespace TorusSimulation
             state.vel.x = -3;
             state.omega.z = -2;
             presets.Add(("Endless roll", state, parameters));
-
-            parameters = default_params;
-            parameters.g = 3.721;
-            state = default_state;
-            state.omega.x = 0.5f;
-            state.omega.y = 0.2f;
-            state.omega.z = 0.3f;
-            state.pos.z = 2;
-            presets.Add(("Mars gravity", state, parameters));
 
             parameters = default_params;
             parameters.g = 0;
@@ -278,10 +267,22 @@ namespace TorusSimulation
             state.omega.x = -state.vel.y / parameters.OuterRadius;
             state.omega.z = -8;
             presets.Add(("Straightening", state, parameters));
+
+
+            parameters = default_params;
+            state = default_state;
+            state.omega.x = 40;
+            state.theta= Math.PI/2;
+            state.pos.z = 0.1;
+            presets.Add(("Stand up", state, parameters));
         }
+
+
+
 
         private void draw(object sender, EventArgs e)
         {
+
             double time = DateTime.Now.Ticks / (double)TimeSpan.TicksPerSecond;
             float dt= (float)(time - prevTime);
 
@@ -291,12 +292,9 @@ namespace TorusSimulation
             if(tbPlayPause != null && tbPlayPause.IsChecked==false)
                 simulation_dt = 0;
 
-            //handle keyboard input forrotation
-            rotateWithKeyboard(simulation_dt);
-
-
             //update madel state
             torusModel.update(simulation_dt);
+
             //updates view transformation
             updateViewTransform();
             //set camera transform
@@ -318,14 +316,21 @@ namespace TorusSimulation
             //draw torus
             torusModel.Render(eng, simulation_dt);
 
-            //update image
+
             eng.Present();
 
             //show dt and fps
             lbFrameTime.Content = (dt*1000).ToString("0.00") + " ms"+ " ("+(1/dt).ToString("0.0")+" fps)";
-            prevTime = time;
 
-            syncStateCallback();
+            //join computation thread started by update
+            torusModel.syncState();
+
+            syncUiWithState();
+
+            //handle keyboard input for rotation
+            rotateWithKeyboard(simulation_dt);
+
+            prevTime = time;
         }
 
         // ToggleButton handlers to update Content text (Play/Pause)
@@ -354,7 +359,7 @@ namespace TorusSimulation
         }
 
         //Syncs state of model with UI controls
-        void syncStateCallback()
+        void syncUiWithState()
         {
             //return if ui isn't initialized yet
             if(angle1==null)
@@ -575,7 +580,7 @@ namespace TorusSimulation
                 torusModel.ResetState();
             }
 
-            syncStateCallback();
+            syncUiWithState();
         }
 
         private void SliderSimulationSpeed_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -902,7 +907,7 @@ namespace TorusSimulation
             torusModel.state = preset.Item2;
 
             btnParams.Focus();
-            syncStateCallback();
+            syncUiWithState();
         }
     }
 }
