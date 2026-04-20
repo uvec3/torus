@@ -97,6 +97,25 @@
                 <ToggleButton x:Name="btnParams" Content="Show Parameters" Width="120" Margin="10"
                               HorizontalAlignment="Left" />
                 <Label>Model state:</Label>
+                <StackPanel Margin="8,0,8,8">
+                    <Label x:Name="txtEnergyTotal" FontWeight="SemiBold" Content="Total energy: 0.000" />
+
+                    <StackPanel Margin="12,0,0,0">
+                        <Label x:Name="txtEnergyPotential" FontWeight="SemiBold" Content="Potential: 0.000" />
+                        <Label x:Name="txtEnergyGravitational" Margin="12,0,0,0" Content="Gravitational: 0.000" />
+                        <Label x:Name="txtEnergySpring" Margin="12,0,0,0" Content="Spring: 0.000" />
+                    </StackPanel>
+
+                    <StackPanel Margin="12,0,0,0">
+                        <Label x:Name="txtEnergyKinetic" FontWeight="SemiBold" Content="Kinetic: 0.000" />
+                        <Label x:Name="txtEnergyLinear" Margin="12,0,0,0" Content="Translational: 0.000" />
+                        <Label x:Name="txtEnergyRotational" Margin="12,0,0,0" Content="Rotational: 0.000" />
+                    </StackPanel>
+
+                    <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="DimGray" FontSize="12">
+                        Keyboard: W/S, A/D, Q/E rotate the model; Space and Left Shift change vertical speed; R resets; V toggles camera follow.
+                    </TextBlock>
+                </StackPanel>
 
                 <Popup x:Name="popupParams" PlacementTarget="{Binding ElementName=btnParams}" Placement="Right"
                        AllowsTransparency="True" PopupAnimation="Slide" StaysOpen="False"
@@ -106,40 +125,53 @@
                                       MaxHeight="900">
                             <StackPanel>
                                 <Label x:Name="txtDelta" ToolTip="Contact patch deformation radius used to generate rolling friction torque.">delta:    0.06</Label>
-                                <Slider x:Name="delta" Minimum="0" Maximum="0.2" Value="0.06"
-                                        ToolTip="Delta (0 to 0.2): larger values increase rolling resistance from deformation."
-                                        ValueChanged="Delta_OnValueChanged" />
+                                <TextBox x:Name="delta" Text="0.06" Width="120"
+                                         ToolTip="Delta (0 to 0.2): larger values increase rolling resistance from deformation."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
+
+                                <Label x:Name="txtK" ToolTip="Contact stiffness used for ground penetration response.">k:    500000</Label>
+                                <TextBox x:Name="stiffness" Text="500000" Width="120"
+                                         ToolTip="k (0 to 10000000): higher values make the ground contact stiffer."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
                                 <Label x:Name="txtMu" ToolTip="Surface friction coefficient between the torus and the floor.">mu:    1</Label>
-                                <Slider x:Name="mu" Minimum="0" Maximum="5" Value="0.3"
-                                        ToolTip="Mu (0 to 5): higher values increase sliding friction force."
-                                        ValueChanged="Mu_OnValueChanged" />
+                                <TextBox x:Name="mu" Text="0.3" Width="120"
+                                         ToolTip="Mu (0 to 5): higher values increase sliding friction force."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
 
                                 <Label x:Name="txtG" ToolTip="Gravity acceleration magnitude.">g:    1.0</Label>
-                                <Slider x:Name="g" Minimum="0" Maximum="1000" Value="10"
-                                        ToolTip="g (0 to 1000): controls gravity strength applied downward."
-                                        ValueChanged="g_OnValueChanged" />
+                                <TextBox x:Name="g" Text="10" Width="120"
+                                         ToolTip="g (0 to 1000): controls gravity strength applied downward."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
                                 <Label x:Name="txtMass" ToolTip="Rigid body mass of the torus.">Mass:    1.0</Label>
-                                <Slider x:Name="sliderMass" Minimum="0.01" Maximum="1000" Value="1"
-                                        ToolTip="Mass (0.01 to 1000): affects inertia and linear acceleration from forces."
-                                        ValueChanged="SliderMass_OnValueChanged" />
+                                <TextBox x:Name="sliderMass" Text="1" Width="120"
+                                         ToolTip="Mass (0.01 to 1000): affects inertia and linear acceleration from forces."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
                                 <Label x:Name="txtOuterR" ToolTip="Outer diameter radius of the torus profile.">Outer radius:    1.0</Label>
-                                <Slider x:Name="sliderOuterR" Minimum="0.2" Maximum="10" Value="2.0"
-                                        ToolTip="Outer radius (0.2 to 10): increases overall torus size."
-                                        ValueChanged="SliderOuterR_OnValueChanged" />
+                                <TextBox x:Name="sliderOuterR" Text="2.0" Width="120"
+                                         ToolTip="Outer radius (0.2 to 10): increases overall torus size."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
                                 <Label x:Name="txtInnerR" ToolTip="Inner hole radius of the torus.">Inner radius:    1.0</Label>
-                                <Slider x:Name="sliderInnerR" Minimum="0.1" Maximum="10" Value="0.5"
-                                        ToolTip="Inner radius (0.1 to 10): adjusts tube thickness relative to outer radius."
-                                        ValueChanged="SliderInnerR_OnValueChanged" />
+                                <TextBox x:Name="sliderInnerR" Text="0.5" Width="120"
+                                         ToolTip="Inner radius (-10 to 10): adjusts tube thickness relative to outer radius."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
 
-                                <Label x:Name="txtAbsorption" ToolTip="Energy absorbed during collision with the ground.">Absorption:    0.0</Label>
-                                <Slider x:Name="absorption" Minimum="0" Maximum="0.9" Value="0"
-                                        ToolTip="Absorption (0 to 0.9): higher values damp bounce and vertical rebound speed."
-                                        ValueChanged="Absorption_OnValueChanged" />
+                                <Label x:Name="txtAbsorption" ToolTip="Percentage of kinetic energy absorbed during collision with the surface.">Absorption:    0.0</Label>
+                                <TextBox x:Name="absorption" Text="0" Width="120"
+                                         ToolTip="Absorption (0 to 1)."
+                                         LostFocus="ParameterTextBox_LostFocus"
+                                         KeyDown="ParameterTextBox_KeyDown" />
                             </StackPanel>
                         </ScrollViewer>
                     </Border>

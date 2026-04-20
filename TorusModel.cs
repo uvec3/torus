@@ -7,144 +7,162 @@ namespace TorusSimulation
     {
         public struct State
         {
-            public float fi;
-            public float theta;
-            public float psi;
-            public vec3 omega;
-            public vec3 pos;
-            public vec3 vel;
+            public double fi;
+            public double theta;
+            public double psi;
+            public dvec3 omega;
+            public dvec3 pos;
+            public dvec3 vel;
 
-            public State(float[] vector)
+            public State(double[] vector)
             {
                 fi = vector[0];
                 theta = vector[1];
                 psi= vector[2];
 
-                omega = new vec3(vector[3],vector[4],vector[5]);
-                pos = new vec3(vector[6],vector[7],vector[8]);
-                vel = new vec3(vector[9],vector[10],vector[11]);
+                omega = new dvec3(vector[3],vector[4],vector[5]);
+                pos = new dvec3(vector[6],vector[7],vector[8]);
+                vel = new dvec3(vector[9],vector[10],vector[11]);
             }
 
-            public float[] toVector()
+            public double[] toVector()
             {
-                return new float[]{fi,theta,psi,omega.x,omega.y,omega.z,pos.x,pos.y,pos.z,vel.x,vel.y,vel.z};
+                return new double[]{fi,theta,psi,omega.x,omega.y,omega.z,pos.x,pos.y,pos.z,vel.x,vel.y,vel.z};
+            }
+
+
+            public dmat3 modelToWorld()
+            {
+                dmat3 m_ax= new dmat3 (1,0,0,
+                    0,Math.Cos(fi),-Math.Sin(fi),
+                    0,Math.Sin(fi),Math.Cos(fi)).Transposed;
+
+                dmat3 m_ay= new dmat3 (Math.Cos(theta),0,Math.Sin(theta),
+                    0,1,0,
+                    -Math.Sin(theta),0,Math.Cos(theta)).Transposed;
+
+                dmat3 m_az= new dmat3 (Math.Cos(psi),-Math.Sin(psi),0,
+                    Math.Sin(psi),Math.Cos(psi),0,
+                    0,0,1).Transposed;
+
+                return m_az*m_ay*m_ax;
             }
 
 
             //Compute derivatives vector
-            public float[] dx(Parameters p)
+            public double[] dx(Parameters p)
             {
-                float R = (p.OuterRadius+p.InnerRadius)/2;
-                float r = (p.OuterRadius-p.InnerRadius)/2;
+                double R = (p.OuterRadius+p.InnerRadius)/2;
+                double r = (p.OuterRadius-p.InnerRadius)/2;
 
 
-                mat3 m_ax= new mat3 (1,0,0,
-                    0,(float)Math.Cos(fi),-(float)Math.Sin(fi),
-                    0,(float)Math.Sin(fi),(float)Math.Cos(fi)).Transposed;
+                dmat3 m_ax= new dmat3 (1,0,0,
+                    0,Math.Cos(fi),-Math.Sin(fi),
+                    0,Math.Sin(fi),Math.Cos(fi)).Transposed;
 
-                mat3 m_ay= new mat3 ((float)Math.Cos(theta),0,(float)Math.Sin(theta),
+                dmat3 m_ay= new dmat3 (Math.Cos(theta),0,Math.Sin(theta),
                     0,1,0,
-                    -(float)Math.Sin(theta),0,(float)Math.Cos(theta)).Transposed;
+                    -Math.Sin(theta),0,Math.Cos(theta)).Transposed;
 
-                mat3 m_az= new mat3 ((float)Math.Cos(psi),-(float)Math.Sin(psi),0,
-                    (float)Math.Sin(psi),(float)Math.Cos(psi),0,
+                dmat3 m_az= new dmat3 (Math.Cos(psi),-Math.Sin(psi),0,
+                    Math.Sin(psi),Math.Cos(psi),0,
                     0,0,1).Transposed;
 
-                mat3 M = m_az*m_ay*m_ax;
+                dmat3 M = m_az*m_ay*m_ax;
 
 
 
                 //angular velocity
-                vec3 ax = m_az*m_ay*new vec3(1,0,0);
-                vec3 ay = m_az*new vec3(0,1,0);
-                vec3 az = new vec3(0,0,1);
-                mat3 B = new mat3(ax,ay,az);
-                vec3 angles_d = B.Inverse*M*omega;
+                dvec3 ax = m_az*m_ay*new dvec3(1,0,0);
+                dvec3 ay = m_az*new dvec3(0,1,0);
+                dvec3 az = new dvec3(0,0,1);
+                dmat3 B = new dmat3(ax,ay,az);
+                dvec3 angles_d = B.Inverse*M*omega;
 
 
                 //Calculating forces
-                float theta_n=theta%(float)(2*Math.PI);
+                double theta_n=theta%(2*Math.PI);
                 if(theta_n>Math.PI)
-                    theta_n-=2*(float)Math.PI;
+                    theta_n-=2*Math.PI;
                 if(theta_n<-Math.PI)
-                    theta_n+=2*(float)Math.PI;
+                    theta_n+=2*Math.PI;
 
-                vec3 lowerPoint = m_az*m_ay* new vec3(0,0,Math.Abs(theta_n)>(Math.PI/2)?R:-R);
-                vec3 touchPoint = lowerPoint+new vec3(0,0,-r);
-                vec3 touchPointVRot = vec3.Cross(M*omega,touchPoint);
-                vec3 touchPointV= touchPointVRot+vel;
+                dvec3 lowerPoint = m_az*m_ay* new dvec3(0,0,Math.Abs(theta_n)>(Math.PI/2)?R:-R);
+                dvec3 touchPoint = lowerPoint+new dvec3(0,0,-r);
+                dvec3 touchPointVRot = glm.Cross(M*omega,touchPoint);
+                dvec3 touchPointV= touchPointVRot+vel;
 
                 //gravity force
-                vec3 F_G = new vec3(0,0,-p.m*p.g);
+                dvec3 F_G = new dvec3(0,0,-p.m*p.g);
 
                 //Normal force application point
-                vec3 r_N = touchPoint;
-                //if tor has non-zero speed then add small displacement in the direction of its rolling along flat
+                dvec3 r_N = touchPoint;
+                //if torus has non-zero speed then add small displacement in the direction of its rolling along the flat
                 //to simulate rolling friction force.
                 //Patch where tor is touching the flat is approximated as a circle with delta radius.
                 //if delta is zero then F_G will go through (0,0,0) which means that no torque will be added by this force
                 //and, as a result, no rolling friction
                 if(touchPointVRot.Length>0)
-                    r_N -= new vec3(touchPointVRot.xy, 0).Normalized * p.delta;
+                    r_N -= new dvec3(touchPointVRot.xy, 0).Normalized * p.delta;
 
                 //normal force
-                vec3 F_N;
-                bool under_the_surface = pos.z + r_N.z < -r / 100;
+                dvec3 F_N= new dvec3(0, 0, 0);
                 //in the air
-                if (pos.z + r_N.z > r / 100)
+                if (pos.z + r_N.z > 0)
                 {
-                    F_N = new vec3(0, 0, 0);
+                    F_N = new dvec3(0, 0, 0);
                 }
                 //Below the ground
-                else if (under_the_surface)
-                {
-                    F_N = new vec3(0, 0, -(pos.z + r_N.z) * p.m * p.g * 500);
-                    if (touchPointV.z > 0)
-                    {
-                        F_N *= (1-p.absorption);
-                    }
-                }
                 else
                 {
-                    F_N = new vec3(0,0,p.m*p.g);
+
+                    var sqr = new Func<double,double>(x => x * x);
+
+                    //calculate damping coefficient
+                    double e = Math.Sqrt(1 - p.absorption);
+                    double ratio = -Math.Log(e) /
+                                   Math.Sqrt( sqr(Math.PI) + sqr(Math.Log(e)) );
+                    double c = 2 * ratio * Math.Sqrt(p.m * p.k);
+
+                    //spring force
+                    F_N = new dvec3(0, 0, -(pos.z + r_N.z) * p.k);
+                    //damping force
+                    F_N += -touchPointV.z * c * new dvec3(0,0,1);
                 }
+
 
 
                 //Friction (friction between tor and the surface)
-                vec3 F_friction= new vec3(0,0,0);
+                dvec3 F_friction= new dvec3(0,0,0);
                 //friction exist only when touching point is moving otherwise it is 0
-                if(touchPointV.Length>0)
+                if(touchPointV.Length>0.001)
                     F_friction = -touchPointV.Normalized *F_N.Length*p.mu;
                 F_friction.z = 0;
 
                 //friction force is applied to the point where tor touches to surface
-                vec3 r_friction = touchPoint;
+                dvec3 r_friction = touchPoint;
 
-                float omega_sign = (M * omega).z > 0 ? 1 : -1;
-                vec3 rot_friction_torque = new vec3(0, 0, -(omega_sign) * p.mu*p.delta * F_N.z);
-
-
-
+                double omega_sign = glm.Sign((M * omega).z);
+                dvec3 rot_friction_torque = new dvec3(0, 0, -(omega_sign) * p.mu*p.delta * F_N.z);
 
 
                 //derivative of position is velocity
-                vec3 pos_d = vel;
+                dvec3 pos_d = vel;
 
                 //acceleration (derivative of velocity)
-                vec3 vel_d=(F_G+F_N+F_friction)/p.m;
+                dvec3 vel_d=(F_G+F_N+F_friction)/p.m;
 
                 //torque
-                vec3 torque = new vec3(0,0,0);
-                torque+=vec3.Cross(r_N,F_N)+vec3.Cross(r_friction,F_friction);
+                dvec3 torque = new dvec3(0,0,0);
+                torque+=glm.Cross(r_N,F_N)+glm.Cross(r_friction,F_friction);
                 torque += rot_friction_torque;
 
                 //angular acceleration
-                vec3 J = new vec3(p.J_xx,p.J_yy,p.J_zz);
-                vec3 omega_d = (M.Transposed * torque - vec3.Cross(omega, omega * J)) / J;
-
+                dvec3 J = new dvec3(p.J_xx,p.J_yy,p.J_zz);
+                dvec3 omega_d = (M.Transposed * torque - glm.Cross(omega, omega * J)) / J;
 
                 //build resulting vector of derivatives
-                float[] res = new float[12];
+                double[] res = new double[12];
                 res[0] = angles_d.x;
                 res[1] = angles_d.y;
                 res[2] = angles_d.z;
@@ -166,31 +184,32 @@ namespace TorusSimulation
                 theta = 0;
                 psi = 0;
 
-                pos = new vec3(0,0,p.OuterRadius);
-                omega = new vec3(0.0f,0.0f,0.0f);
-                vel = new vec3(0.0f,0.0f,0.0f);
+                pos = new dvec3(0,0,p.OuterRadius);
+                omega = new dvec3(0.0,0.0,0.0);
+                vel = new dvec3(0.0,0.0,0.0);
             }
         }
 
         public struct Parameters
         {
-            public float InnerRadius;
-            public float OuterRadius;
-            public float m;//mass
-            public float g;//acceleration
-            public float delta;//deformation scale
-            public float mu ;//friction coefficient
-            public float absorption;//energy absorption on collision
+            public double InnerRadius;
+            public double OuterRadius;
+            public double m;//mass
+            public double g;//acceleration
+            public double delta;//deformation size
+            public double k;//contact stiffness
+            public double mu ;//friction coefficient
+            public double absorption;//energy absorption on collision
 
-            public float J_xx;
-            public float J_yy;
-            public float J_zz;
+            public double J_xx;
+            public double J_yy;
+            public double J_zz;
 
 
             public void update()
             {
-                float R = (OuterRadius+InnerRadius)/2;
-                float r = (OuterRadius-InnerRadius)/2;
+                double R = (OuterRadius+InnerRadius)/2;
+                double r = (OuterRadius-InnerRadius)/2;
 
                 J_yy=J_zz=m/8*(4*R*R+5*r*r);
                 J_xx=m/4*(4*R*R+3*r*r);
@@ -232,9 +251,8 @@ namespace TorusSimulation
                 (float)Math.Sin(state.psi),(float)Math.Cos(state.psi),0,
                 0,0,1).Transposed;
 
-            eng.Render(torMesh, new Transform(m_az*m_ay*m_ax*rot, state.pos));
+            eng.Render(torMesh, new Transform(m_az*m_ay*m_ax*rot, (vec3)state.pos));
         }
-
 
         public void ResetState()
         {
@@ -246,20 +264,20 @@ namespace TorusSimulation
             //update precalculated parameters
             parameters.update();
             //rebuild mesh
-            torMesh= Torus.BuildTor(parameters.OuterRadius, parameters.InnerRadius, 30, true);
+            torMesh= Torus.BuildTor((float)parameters.OuterRadius, (float)parameters.InnerRadius, 30, true);
         }
 
         //advance simulation by time dt
-        public void update(float dt)
+        public void update(double dt)
         {
-            float direction = dt < 0?-1:1;
+            double direction = dt < 0?-1:1;
             dt=Math.Abs(dt);
             //max allowed dt step for runge kutta
-            float maxStep = 0.001f;
+            double maxStep = 0.001;
             //number of steps to cover dt
             int stepsCount= (int)Math.Ceiling(dt/maxStep);
             //actual step
-            float step = dt/stepsCount;
+            double step = dt/stepsCount;
 
             for (int i = 0; i < stepsCount; ++i)
             {
@@ -267,30 +285,97 @@ namespace TorusSimulation
             }
         }
 
-
-        State RungeKutta(State s, float h)
+        public void update(float dt)
         {
-            float[] x = s.toVector();
+            update((double)dt);
+        }
+
+        public double gravitationalPotentialEnergy()
+        {
+            return state.pos.z * parameters.m * parameters.g;
+        }
+
+        public double springPotentialEnergy()
+        {
+            double R = (parameters.OuterRadius + parameters.InnerRadius) / 2;
+            double r = (parameters.OuterRadius - parameters.InnerRadius) / 2;
+
+            double theta_n = state.theta % (2 * Math.PI);
+            if (theta_n > Math.PI)
+                theta_n -= 2 * Math.PI;
+            if (theta_n < -Math.PI)
+                theta_n += 2 * Math.PI;
+
+            dmat3 m_ay = new dmat3(Math.Cos(state.theta), 0, Math.Sin(state.theta),
+                0, 1, 0,
+                -Math.Sin(state.theta), 0, Math.Cos(state.theta)).Transposed;
+
+            dmat3 m_az = new dmat3(Math.Cos(state.psi), -Math.Sin(state.psi), 0,
+                Math.Sin(state.psi), Math.Cos(state.psi), 0,
+                0, 0, 1).Transposed;
+
+            dvec3 lowerPoint = m_az * m_ay * new dvec3(0, 0, Math.Abs(theta_n) > (Math.PI / 2) ? R : -R);
+            dvec3 touchPoint = lowerPoint + new dvec3(0, 0, -r);
+
+            double penetration = -(state.pos.z + touchPoint.z);
+            if (penetration <= 0)
+                return 0;
+
+            return parameters.k * penetration * penetration / 2.0;
+        }
+
+        public double kineticEnergy()
+        {
+            return parameters.m* glm.Dot(state.vel,state.vel)/2.0;
+        }
+
+        public double rotationalKineticEnergy()
+        {
+            return (parameters.J_xx*state.omega.x*state.omega.x/2.0+
+                   parameters.J_yy*state.omega.y*state.omega.y/2.0+
+                   parameters.J_zz*state.omega.z*state.omega.z/2.0);
+        }
+
+        public double potentialEnergy()
+        {
+            return gravitationalPotentialEnergy() + springPotentialEnergy();
+        }
+
+        public double kineticEnergyTotal()
+        {
+            return kineticEnergy() + rotationalKineticEnergy();
+        }
+
+        public double totalEnergy()
+        {
+            return potentialEnergy() + kineticEnergyTotal();
+        }
+
+
+
+        State RungeKutta(State s, double h)
+        {
+            double[] x = s.toVector();
             int n = x.Length;
 
-            float[] k1 = s.dx(parameters);
+            double[] k1 = s.dx(parameters);
 
-            float[] x2 = new float[n];
+            double[] x2 = new double[n];
             for (int i = 0; i < n; i++)
                 x2[i] = x[i] + h / 2 * k1[i];
-            float[] k2 = new State(x2).dx(parameters);
+            double[] k2 = new State(x2).dx(parameters);
 
-            float[] x3 = new float[n];
+            double[] x3 = new double[n];
             for (int i = 0; i < n; i++)
                 x3[i] = x[i] + h / 2 * k2[i];
-            float[] k3 =new State(x3).dx(parameters);
+            double[] k3 =new State(x3).dx(parameters);
 
-            float[] x4 = new float[n];
+            double[] x4 = new double[n];
             for (int i = 0; i < n; i++)
                 x4[i] = x[i] + h * k3[i];
-            float[] k4 = new State(x4).dx(parameters);
+            double[] k4 = new State(x4).dx(parameters);
 
-            float[] res = new float[n];
+            double[] res = new double[n];
             for (int i = 0; i < n; i++)
                 res[i] = x[i] + h / 6 * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
             return new State(res);

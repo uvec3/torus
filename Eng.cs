@@ -1,4 +1,4 @@
-﻿//Simple software renderer in C# using WPF bitmap as output and GlmSharp for math operatwions.
+﻿//Simple software renderer in C# using WPF bitmap as output and GlmSharp for math operations.
 
 using System;
 using System.Collections.Generic;
