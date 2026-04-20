@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
+using System.Windows.Media;
 using GlmSharp;
 
 namespace TorusSimulation
@@ -12,33 +14,43 @@ namespace TorusSimulation
     public partial class MainWindow
     {
         //My rendering engine
-        Eng eng = new Eng();
-
-        //Initial view transformation, swaps y and z axes. Now y points into screen and z points up, x still points to the right.
-        Transform viewTransform = new Transform(new mat3(1,0,0, 0,0,-1, 0,1,0), new vec3(0, -4, -10));
+        private readonly Eng eng = new Eng();
 
         //Object represents torus mesh, its current state and simulates its physics
-        TorusModel torusModel = new TorusModel();
+        private readonly TorusModel torusModel = new TorusModel();
 
-        //meshes
-        private Triangle[] axes=null;
-        private Triangle[] square=null;
+        //Meshes
+        private static Triangle[] axes;
+        private static Triangle[] square;
 
-        private DispatcherTimer timer;
+        private readonly List<ValueTuple<string, TorusModel.State, TorusModel.Parameters>> presets =
+            new List<(string, TorusModel.State, TorusModel.Parameters)>();
+
+        //previous frame time
         double prevTime = 0;
 
-        private List<ValueTuple<string, TorusModel.State, TorusModel.Parameters>> presets =
-            new List<(string, TorusModel.State, TorusModel.Parameters)>();
+        private Thread renderingThread;
+        private readonly Mutex renderingMutex = new Mutex();
+
+        //button state
+        bool isMousePressed = false;
+        //previous mouse position
+        float prevX = 0;
+        float prevY = 0;
+        //view rotation angles
+        private float ax = (float)-Math.PI/3;
+        private float az = 0;
+        //view distance from center
+        private float distance = 20f;
 
 
         public MainWindow()
         {
             InitializeComponent();
 
-            //create different initial state and parameters presets
             create_presets();
 
-            // Populate presets combo box (if available)
+            // Populate presets combo box
             if (comboPresets != null)
             {
                 comboPresets.Items.Clear();
@@ -52,15 +64,9 @@ namespace TorusSimulation
 
             btResetClick(null,null);
 
-            //Add engine view as to the second column of the main grid
+            //Add engine view to the second column of the main grid
             grid.Children.Add(eng);
             Grid.SetColumn(eng, 2);
-
-            //timer setup
-            timer = new DispatcherTimer();
-            timer.Interval = TimeSpan.FromMilliseconds(0);
-            timer.Tick += new EventHandler(draw);
-            timer.Start();
 
             //add mouse event handlers
             eng.MouseMove += eng_MouseMove;
@@ -69,6 +75,8 @@ namespace TorusSimulation
             eng.MouseWheel += EngOnMouseWheel;
 
             AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(OnGlobalPreviewKeyDown), true);
+            CompositionTarget.Rendering += CompositionTargetOnRendering;
+
 
             //create meshes
             axes = new Triangle[6];
@@ -92,7 +100,6 @@ namespace TorusSimulation
             light.position=new vec3(1,0,20);
             eng.LightSources.Add(light);
 
-
             //start time
             prevTime = DateTime.Now.Ticks / (double)TimeSpan.TicksPerSecond;
             torusModel.ResetState();
@@ -104,8 +111,85 @@ namespace TorusSimulation
             }
         }
 
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            renderingThread?.Abort();
+            base.OnClosing(e);
+        }
+
+        private void CompositionTargetOnRendering(object sender, EventArgs e)
+        {
+            if(renderingThread?.Join(1)==false)
+                return;
+
+            eng.Present();
+            syncUiWithState();
+
+            double time = DateTime.Now.Ticks / (double)TimeSpan.TicksPerSecond;
+            float dt= (float)(time - prevTime);
+
+            //simulation dt can differ from actual time passed to speed up or slow down simulation
+            float simulation_dt = dt*(float)sliderSpeed.Value;
+            // check ToggleButton state instead of old rbPlay radio button
+            if(tbPlayPause != null && tbPlayPause.IsChecked==false)
+                simulation_dt = 0;
 
 
+            //handle keyboard input for rotation
+            rotateWithKeyboard(simulation_dt);
+            //updates view transformation
+            eng.camera.viewTransform = buildViewTransform();
+
+            //show dt and fps
+            lbFrameTime.Content = (dt*1000).ToString("0.00") + " ms"+ " ("+(1/dt).ToString("0.0")+" fps)";
+
+            prevTime = time;
+
+            renderingThread = new Thread(() =>
+            {
+                renderingMutex.WaitOne();
+                draw(simulation_dt, eng, torusModel);
+                renderingMutex.ReleaseMutex();
+            });
+            renderingThread.Start();
+        }
+
+        static void draw(float simulation_dt,Eng eng, TorusModel torusModel)
+        {
+            //update madel state
+            torusModel.update(simulation_dt);
+
+            //draw axes
+            Face face = eng.showFace;
+            eng.showFace = Face.Both;
+            bool lighting = eng.enableLighting;
+            eng.enableLighting = false;
+            eng.Render(axes, new Transform(mat3.Identity*2, new vec3(0, 0, 0.01f)));
+            eng.showFace = face;
+            eng.enableLighting= lighting;
+
+            //draw floor
+            var squareTransform = new Transform(mat3.Identity*50, new vec3(0, 0, 0f));
+            eng.Render(square, squareTransform);
+
+            //draw torus
+            torusModel.Render(eng, simulation_dt);
+
+            //join computation thread started by update
+            torusModel.syncState();
+        }
+
+        Transform buildViewTransform()
+        {
+            Transform viewTransform = Transform.identity;
+            if(cbCameraFollow.IsChecked==true)
+                viewTransform.translation -= (vec3)torusModel.state.pos;
+            viewTransform.Rotate(new vec3(0, 0, 1), az);
+            viewTransform.Rotate(new vec3(1, 0, 0), ax);
+            viewTransform.translation += new vec3(0, 0, -distance);
+
+            return viewTransform;
+        }
 
         private void create_presets()
         {
@@ -126,8 +210,6 @@ namespace TorusSimulation
             default_state.fi = default_state.psi = default_state.theta = 0;
             presets.Add(("Default", default_state, default_params));
 
-
-
             TorusModel.Parameters parameters = default_params;
             parameters.delta = 0.05f;
             parameters.InnerRadius = 0.25f;
@@ -137,7 +219,6 @@ namespace TorusSimulation
             state.omega.x=-30;
             state.theta = (float)Math.PI/16;
             presets.Add(("Rolling wheel", state, parameters));
-
 
             parameters = default_params;
             parameters.InnerRadius = 0.45f;
@@ -155,9 +236,7 @@ namespace TorusSimulation
             state.vel.z = 70;
             state.omega.y = 100;
             state.omega.z = 30;
-
             presets.Add(("Coin toss", state, parameters));
-
 
             state = default_state;
             state.omega.z = 50;
@@ -189,7 +268,6 @@ namespace TorusSimulation
             state.omega.y = 0.1f;
             presets.Add(("Fall", state, parameters));
 
-
             parameters = default_params;
             parameters.absorption = 0.6f;
             state = default_state;
@@ -197,7 +275,6 @@ namespace TorusSimulation
             state.vel.z = 10f;
             state.omega.x = 20;
             presets.Add(("Come back", state, parameters));
-
 
             parameters = default_params;
             parameters.absorption = 0f;
@@ -229,7 +306,6 @@ namespace TorusSimulation
             presets.Add(("No gravity", state, parameters));
 
             parameters = default_params;
-            // parameters.InnerRadius = -1;
             parameters.absorption = 0.5;
             parameters.InnerRadius = -0.3;
             parameters.OuterRadius = 0.3;
@@ -246,7 +322,6 @@ namespace TorusSimulation
             state.omega.x = -state.vel.y / parameters.OuterRadius;
             presets.Add(("Spiral", state, parameters));
 
-
             parameters = default_params;
             parameters.delta = 0.00;
             state = default_state;
@@ -255,7 +330,6 @@ namespace TorusSimulation
             state.pos.x = -11.283;
             state.omega.x = -state.vel.y / parameters.OuterRadius;
             presets.Add(("Circle", state, parameters));
-
 
             parameters = default_params;
             parameters.delta = 0.1;
@@ -268,7 +342,6 @@ namespace TorusSimulation
             state.omega.z = -8;
             presets.Add(("Straightening", state, parameters));
 
-
             parameters = default_params;
             state = default_state;
             state.omega.x = 40;
@@ -278,60 +351,80 @@ namespace TorusSimulation
         }
 
 
+        //handles rotation with keyboard input (WSADQE)
+        void rotateWithKeyboard(float dt)
+        {
+            double speed = 10;
+
+            dvec3 delta = new dvec3(0, 0, 0);
+            if (Keyboard.IsKeyDown(Key.W))
+                delta += new dvec3(-1,0,0);
+            if (Keyboard.IsKeyDown(Key.S))
+                delta -= new dvec3(-1,0,0);
+            if (Keyboard.IsKeyDown(Key.A))
+                delta += new dvec3(0,-1,0);
+            if (Keyboard.IsKeyDown(Key.D))
+                delta-= new dvec3(0,-1,0);
+            if (Keyboard.IsKeyDown(Key.Q))
+                delta += new dvec3(0,0,1);
+            if (Keyboard.IsKeyDown(Key.E))
+                delta-= new dvec3(0,0,1);
+
+            if (delta != new dvec3(0, 0, 0))
+            {
+                delta = delta.Normalized * speed * dt;
 
 
-        private void draw(object sender, EventArgs e)
+                dmat3 camera_to_world = new dmat3(
+                    Math.Cos(az), -Math.Sin(az),0,
+                    Math.Sin(az),Math.Cos(az),0,
+                    0,0,1);
+
+                dmat3 world_to_model = torusModel.state.modelToWorld().Transposed;
+                torusModel.state.omega+=world_to_model*camera_to_world*delta;
+            }
+        }
+
+        //handle key press
+        private void OnGlobalPreviewKeyDown(object sender, KeyEventArgs e)
         {
 
-            double time = DateTime.Now.Ticks / (double)TimeSpan.TicksPerSecond;
-            float dt= (float)(time - prevTime);
+            if (e.IsRepeat)
+                return;
 
-            //simulation dt can differ from actual time passed to speed up or slow down simulation
-            float simulation_dt = dt*(float)sliderSpeed.Value;
-            // check ToggleButton state instead of old rbPlay radio button
-            if(tbPlayPause != null && tbPlayPause.IsChecked==false)
-                simulation_dt = 0;
+            renderingMutex.WaitOne();
+            if (e.Key == Key.Space)
+            {
+                torusModel.state.vel.z += 10;
+                e.Handled = true;
+            }
 
-            //update madel state
-            torusModel.update(simulation_dt);
+            if (e.Key == Key.LeftShift)
+            {
+                torusModel.state.vel.z -= 10;
+                e.Handled = true;
+            }
 
-            //updates view transformation
-            updateViewTransform();
-            //set camera transform
-            eng.camera.viewTransform = viewTransform;
+            if (e.Key == Key.R)
+            {
+                btResetClick(null, null);
+                e.Handled = true;
+            }
 
-            //draw axes
-            Face face = eng.showFace;
-            eng.showFace = Face.Both;
-            bool lighting = eng.enableLighting;
-            eng.enableLighting = false;
-            eng.Render(axes, new Transform(mat3.Identity*2, new vec3(0, 0, 0.01f)));
-            eng.showFace =face;
-            eng.enableLighting= lighting;
+            if (e.Key == Key.V)
+            {
+                cbCameraFollow.IsChecked = !cbCameraFollow.IsChecked;
+                e.Handled = true;
+            }
 
-            //draw floor
-            var squareTransform = new Transform(mat3.Identity*50, new vec3(0, 0, 0f));
-            eng.Render(square, squareTransform);
-
-            //draw torus
-            torusModel.Render(eng, simulation_dt);
-
-
-            eng.Present();
-
-            //show dt and fps
-            lbFrameTime.Content = (dt*1000).ToString("0.00") + " ms"+ " ("+(1/dt).ToString("0.0")+" fps)";
-
-            //join computation thread started by update
-            torusModel.syncState();
-
-            syncUiWithState();
-
-            //handle keyboard input for rotation
-            rotateWithKeyboard(simulation_dt);
-
-            prevTime = time;
+            //ui shouldn't react to this keys
+            if (e.Key == Key.W || e.Key == Key.S || e.Key == Key.A || e.Key == Key.D || e.Key == Key.Q||e.Key == Key.E)
+            {
+                e.Handled = true;
+            }
+            renderingMutex.ReleaseMutex();
         }
+
 
         // ToggleButton handlers to update Content text (Play/Pause)
         private void TbPlayPause_Checked(object sender, RoutedEventArgs e)
@@ -357,6 +450,44 @@ namespace TorusSimulation
                 }
             }
         }
+
+        private void eng_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            isMousePressed = true;
+            prevX = (float)e.GetPosition(eng).X;
+            prevY = (float)e.GetPosition(eng).Y;
+        }
+
+        private void eng_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            isMousePressed = false;
+        }
+
+        private void eng_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (isMousePressed)
+            {
+                float dx = (float)e.GetPosition(eng).X - prevX;
+                float dy = (float)e.GetPosition(eng).Y - prevY;
+
+                az+=dx * 0.005f;
+                ax+=dy * 0.005f;
+
+                if(ax>0)
+                    ax=0;
+                if(ax<-Math.PI)
+                    ax=- (float)Math.PI;
+
+                prevX = (float)e.GetPosition(eng).X;
+                prevY = (float)e.GetPosition(eng).Y;
+            }
+        }
+
+        private void EngOnMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            distance*= (float)Math.Pow(0.9, e.Delta / 120.0);
+        }
+
 
         //Syncs state of model with UI controls
         void syncUiWithState()
@@ -428,138 +559,6 @@ namespace TorusSimulation
         }
 
 
-        //handles rotation with keyboard input (WSADQE)
-        void rotateWithKeyboard(float dt)
-        {
-            double speed = 10;
-
-            dvec3 delta = new dvec3(0, 0, 0);
-            if (Keyboard.IsKeyDown(Key.W))
-                delta += new dvec3(-1,0,0);
-            if (Keyboard.IsKeyDown(Key.S))
-                delta -= new dvec3(-1,0,0);
-            if (Keyboard.IsKeyDown(Key.A))
-                delta += new dvec3(0,-1,0);
-            if (Keyboard.IsKeyDown(Key.D))
-                delta-= new dvec3(0,-1,0);
-            if (Keyboard.IsKeyDown(Key.Q))
-                delta += new dvec3(0,0,1);
-            if (Keyboard.IsKeyDown(Key.E))
-                delta-= new dvec3(0,0,1);
-
-            if (delta != new dvec3(0, 0, 0))
-            {
-                delta = delta.Normalized * speed * dt;
-
-
-                dmat3 camera_to_world = new dmat3(
-                    Math.Cos(az), -Math.Sin(az),0,
-                    Math.Sin(az),Math.Cos(az),0,
-                    0,0,1);
-                dmat3 world_to_model = torusModel.state.modelToWorld().Transposed;
-                torusModel.state.omega+=world_to_model*camera_to_world*delta;
-            }
-        }
-
-        //handles key press
-        private void OnGlobalPreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.IsRepeat)
-                return;
-
-            if (e.Key == Key.Space)
-            {
-                torusModel.state.vel.z += 10;
-                e.Handled = true;
-            }
-
-            if (e.Key == Key.LeftShift)
-            {
-                torusModel.state.vel.z -= 10;
-                e.Handled = true;
-            }
-
-            if (e.Key == Key.R)
-            {
-                btResetClick(null, null);
-                e.Handled = true;
-            }
-
-            if (e.Key == Key.V)
-            {
-                cbCameraFollow.IsChecked = !cbCameraFollow.IsChecked;
-                e.Handled = true;
-            }
-
-            //ui shouldn't react to this keys
-            if (e.Key == Key.W || e.Key == Key.S || e.Key == Key.A || e.Key == Key.D || e.Key == Key.Q||e.Key == Key.E)
-            {
-                e.Handled = true;
-            }
-        }
-
-
-
-        // CAMERA CONTROL WITH MOUSE
-        //mouse button state
-        bool isMousePressed = false;
-        //previous mouse position
-        float prevX = 0;
-        float prevY = 0;
-        //view rotation angles
-        private float ax = (float)-Math.PI/3;
-        private float az = 0;
-        //view distance from center
-        private float distance = 20f;
-
-        private void eng_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            isMousePressed = true;
-            prevX = (float)e.GetPosition(eng).X;
-            prevY = (float)e.GetPosition(eng).Y;
-        }
-
-        private void eng_MouseUp(object sender, MouseButtonEventArgs e)
-        {
-            isMousePressed = false;
-        }
-
-        private void eng_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (isMousePressed)
-            {
-                float dx = (float)e.GetPosition(eng).X - prevX;
-                float dy = (float)e.GetPosition(eng).Y - prevY;
-
-                az+=dx * 0.005f;
-                ax+=dy * 0.005f;
-
-                if(ax>0)
-                    ax=0;
-                if(ax<-Math.PI)
-                    ax=- (float)Math.PI;
-
-                prevX = (float)e.GetPosition(eng).X;
-                prevY = (float)e.GetPosition(eng).Y;
-            }
-        }
-
-        private void EngOnMouseWheel(object sender, MouseWheelEventArgs e)
-        {
-            distance*= (float)Math.Pow(0.9, e.Delta / 120.0);
-        }
-
-        void updateViewTransform()
-        {
-            viewTransform = Transform.identity;
-            if(cbCameraFollow.IsChecked==true)
-                viewTransform.translation -= (vec3)torusModel.state.pos;
-            viewTransform.Rotate(new vec3(0, 0, 1), az);
-            viewTransform.Rotate(new vec3(1, 0, 0), ax);
-            viewTransform.translation += new vec3(0, 0, -distance);
-        }
-
-
         //Parameters UI handlers
         private void btResetClick(object sender, RoutedEventArgs e)
         {
@@ -572,6 +571,8 @@ namespace TorusSimulation
 
             var preset = presets[idx];
 
+
+            renderingMutex.WaitOne();
             // Copy state
             torusModel.state = preset.Item2;
 
@@ -579,6 +580,7 @@ namespace TorusSimulation
             {
                 torusModel.ResetState();
             }
+            renderingMutex.ReleaseMutex();
 
             syncUiWithState();
         }
@@ -591,25 +593,32 @@ namespace TorusSimulation
 
         private void Angle1_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.fi = angle1.Value/180.0*Math.PI;
             UpdateUiAngles();
+            renderingMutex.ReleaseMutex();
         }
 
         private void Angle2_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.theta = angle2.Value/180.0*Math.PI;
             UpdateUiAngles();
+            renderingMutex.ReleaseMutex();
         }
 
         private void Angle3_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.psi = angle3.Value/180.0*Math.PI;
             UpdateUiAngles();
+            renderingMutex.ReleaseMutex();
         }
 
 
         private void Position_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             if (posX == sender)
             {
                 torusModel.state.pos.x = posX.Value;
@@ -624,6 +633,7 @@ namespace TorusSimulation
             {
                 torusModel.state.pos.z = posZ.Value;
             }
+            renderingMutex.ReleaseMutex();
         }
 
         private static double Clamp(double value, double min, double max)
@@ -690,6 +700,7 @@ namespace TorusSimulation
             if (box == null || torusModel == null)
                 return;
 
+            renderingMutex.WaitOne();
             if (box == sliderMass)
             {
                 double parsed;
@@ -698,10 +709,8 @@ namespace TorusSimulation
                 torusModel.parameters_changed();
                 SetTextBoxValue(sliderMass, value);
                 txtMass.Content = "m: " + value.ToString("0.00");
-                return;
             }
-
-            if (box == delta)
+            else if (box == delta)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 0.2) : torusModel.parameters.delta;
@@ -709,20 +718,16 @@ namespace TorusSimulation
                 torusModel.parameters_changed();
                 SetTextBoxValue(delta, value);
                 txtDelta.Content = "δ: " + value.ToString("0.000");
-                return;
             }
-
-            if (box == stiffness)
+            else if (box == stiffness)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 10000000) : torusModel.parameters.k;
                 torusModel.parameters.k = value;
                 SetTextBoxValue(stiffness, value);
                 txtK.Content = "k: " + value.ToString("0");
-                return;
             }
-
-            if (box == mu)
+            else if (box == mu)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 5) : torusModel.parameters.mu;
@@ -730,20 +735,16 @@ namespace TorusSimulation
                 torusModel.parameters_changed();
                 SetTextBoxValue(mu, value);
                 txtMu.Content = "μ: " + value.ToString("0.000");
-                return;
             }
-
-            if (box == g)
+            else if (box == g)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 1000) : torusModel.parameters.g;
                 torusModel.parameters.g = value;
                 SetTextBoxValue(g, value);
                 txtG.Content = "g: " + value.ToString("0.0");
-                return;
             }
-
-            if (box == absorption)
+            else if (box == absorption)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 0.9999) : torusModel.parameters.absorption;
@@ -751,10 +752,8 @@ namespace TorusSimulation
                 torusModel.parameters_changed();
                 SetTextBoxValue(absorption, value);
                 txtAbsorption.Content = "Absorption: " + value.ToString("0.000");
-                return;
             }
-
-            if (box == sliderInnerR)
+            else if (box == sliderInnerR)
             {
                 double parsed;
                 double inner = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, -10, 10) : torusModel.parameters.InnerRadius;
@@ -773,10 +772,8 @@ namespace TorusSimulation
                 SetTextBoxValue(sliderOuterR, outer);
                 txtInnerR.Content = "Inner Radius: " + inner.ToString("0.000");
                 txtOuterR.Content = "Outer Radius: " + outer.ToString("0.000");
-                return;
             }
-
-            if (box == sliderOuterR)
+            else if(box == sliderOuterR)
             {
                 double parsed;
                 double outer = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0.2, 10) : torusModel.parameters.OuterRadius;
@@ -796,77 +793,105 @@ namespace TorusSimulation
                 txtInnerR.Content = "Inner Radius: " + inner.ToString("0.000");
                 txtOuterR.Content = "Outer Radius: " + outer.ToString("0.000");
             }
+
+            renderingMutex.ReleaseMutex();
         }
 
 
 
         private void OmegaX_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-
+            renderingMutex.WaitOne();
             torusModel.state.omega.x = omegaX.Value;
+            renderingMutex.ReleaseMutex();
+
         }
 
         private void OmegaY_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.omega.y = omegaY.Value;
+            renderingMutex.ReleaseMutex();
         }
 
         private void OmegaZ_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.omega.z = omegaZ.Value;
+            renderingMutex.ReleaseMutex();
         }
 
         private void Vx_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.vel.x = Vx.Value;
+            renderingMutex.ReleaseMutex();
         }
 
         private void Vy_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.vel.y = Vy.Value;
+            renderingMutex.ReleaseMutex();
         }
 
         private void Vz_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             torusModel.state.vel.z = Vz.Value;
+            renderingMutex.ReleaseMutex();
         }
 
 
         //Graphics settings
         private void CbLight_OnClick(object sender, RoutedEventArgs e)
         {
+            renderingMutex.WaitOne();
             eng.enableLighting = cbLight.IsChecked == true;
+            renderingMutex.ReleaseMutex();
         }
 
         private void rbBoth(object sender, RoutedEventArgs e)
         {
+            renderingMutex.WaitOne();
             eng.showFace = Face.Both;
+            renderingMutex.ReleaseMutex();
         }
 
         private void rbFront(object sender, RoutedEventArgs e)
         {
+            renderingMutex.WaitOne();
             eng.showFace = Face.Front;
+            renderingMutex.ReleaseMutex();
         }
 
         private void rbBack(object sender, RoutedEventArgs e)
         {
+            renderingMutex.WaitOne();
             eng.showFace = Face.Back;
+            renderingMutex.ReleaseMutex();
         }
 
         private void backgroundColorUpdate(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             eng.clearColor=new vec4((float)slbgR.Value/255f, (float)slbgG.Value/255f, (float)slbgB.Value/255f, 1);
+            renderingMutex.ReleaseMutex();
         }
 
         private void slAmbientIntensity_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             eng.ambientLight=(float)slAmbientIntensity.Value;
+            renderingMutex.ReleaseMutex();
         }
 
         private void SlLight1Intensity_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
+            renderingMutex.WaitOne();
             if(eng.LightSources != null && eng.LightSources.Count>0)
                 eng.LightSources[0].intensity = (float)slLight1Intensity.Value;
+            renderingMutex.ReleaseMutex();
         }
 
 
@@ -880,7 +905,9 @@ namespace TorusSimulation
             {
                 int width= int.Parse(parts[0].Trim());
                 int height= int.Parse(parts[1].Trim());
+                renderingMutex.WaitOne();
                 eng.SetExtent(width, height);
+                renderingMutex.ReleaseMutex();
             }
         }
 
@@ -894,6 +921,7 @@ namespace TorusSimulation
             if (idx >= presets.Count)
                 return;
 
+            renderingMutex.WaitOne();
             var preset = presets[idx];
 
             // Copy parameters
@@ -908,6 +936,8 @@ namespace TorusSimulation
 
             btnParams.Focus();
             syncUiWithState();
+
+            renderingMutex.ReleaseMutex();
         }
     }
 }
