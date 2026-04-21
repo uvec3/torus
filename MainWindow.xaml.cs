@@ -196,7 +196,7 @@ namespace TorusSimulation
             TorusModel.Parameters default_params = new TorusModel.Parameters();
             default_params.InnerRadius = 0.8f;
             default_params.OuterRadius = 1.0f;
-            default_params.delta = 0.1f;
+            default_params.delta = 0.02f;
             default_params.k = 50000;
             default_params.g = 9.8f;
             default_params.m = 10;
@@ -211,7 +211,7 @@ namespace TorusSimulation
             presets.Add(("Default", default_state, default_params));
 
             TorusModel.Parameters parameters = default_params;
-            parameters.delta = 0.05f;
+            parameters.delta = 0.03f;
             parameters.InnerRadius = 0.25f;
             parameters.OuterRadius = 0.5f;
             TorusModel.State state = default_state;
@@ -221,46 +221,11 @@ namespace TorusSimulation
             presets.Add(("Rolling wheel", state, parameters));
 
             parameters = default_params;
-            parameters.InnerRadius = 0.45f;
-            parameters.OuterRadius = 0.5f;
-            parameters.delta = 0.02f;
-            parameters.mu = 0.3f;
-            parameters.absorption = 0.995f;
-            parameters.g = 98;
-            parameters.m = 5f;
-            parameters.k = 5000000;
-            state = default_state;
-            state.theta = (float)(Math.PI / 2.0f);
-            state.psi = (float)(Math.PI / 8.0f);
-            state.pos.z = 0.3f;
-            state.vel.z = 70;
-            state.omega.y = 100;
-            state.omega.z = 30;
-            presets.Add(("Coin toss", state, parameters));
-
-            state = default_state;
-            state.omega.z = 50;
-            state.vel.y = 20;
-            state.pos.z = 0.5f;
-            parameters = default_params;
-            parameters.InnerRadius = 0.45f;
-            parameters.OuterRadius = 0.5f;
-            parameters.delta = 0.02f;
-            parameters.mu = 0.3f;
-            parameters.absorption = 0.98f;
-            parameters.g = 98;
-            parameters.m = 10f;
-            parameters.k = 5000000;
-            presets.Add(("Spinning coin", state, parameters));
-
-            parameters = default_params;
             parameters.InnerRadius = 0.5f;
-            parameters.absorption = 0.85f;
+            parameters.absorption = 0.8;
             parameters.delta = 0.2f;
-            parameters.k = 500000;
-            parameters.m = 100;
-            parameters.mu = 0.18;
-
+            parameters.mu = 0.4;
+            parameters.k = 10000;
             state = default_state;
             state.pos.z = 15;
             state.theta = (float)(Math.PI / 2.0f);
@@ -306,19 +271,11 @@ namespace TorusSimulation
             presets.Add(("No gravity", state, parameters));
 
             parameters = default_params;
-            parameters.absorption = 0.5;
-            parameters.InnerRadius = -0.3;
-            parameters.OuterRadius = 0.3;
-            parameters.delta = 0.001f;
+            parameters.delta =0.008;
             state = default_state;
-            presets.Add(("Ball", state, parameters));
-
-            parameters = default_params;
-            parameters.delta = 0.02;
-            state = default_state;
-            state.vel.y = 5;
+            state.vel.y = 7;
             state.theta = 0.4;
-            state.pos.x = -11.283;
+            state.pos.x = -20;
             state.omega.x = -state.vel.y / parameters.OuterRadius;
             presets.Add(("Spiral", state, parameters));
 
@@ -332,10 +289,10 @@ namespace TorusSimulation
             presets.Add(("Circle", state, parameters));
 
             parameters = default_params;
-            parameters.delta = 0.1;
+            parameters.delta = 0.03;
             parameters.mu = 0.5;
             state = default_state;
-            state.vel.y = 7;
+            state.vel.y = 9;
             state.vel.x = 4;
             state.theta = 0.4;
             state.omega.x = -state.vel.y / parameters.OuterRadius;
@@ -343,11 +300,56 @@ namespace TorusSimulation
             presets.Add(("Straightening", state, parameters));
 
             parameters = default_params;
+            parameters.InnerRadius = 0.45f;
+            parameters.OuterRadius = 0.5f;
+            parameters.delta = 0.002f;
+            parameters.mu = 0.3f;
+            parameters.absorption = 0.55f;
+            parameters.g = 98;
+            parameters.m = 10f;
+            parameters.k = 500000;
+            state = default_state;
+            state.theta = (float)(Math.PI / 2.0f);
+            state.pos.z = 0.3f;
+            state.vel.z = 56;
+            state.vel.y = 5;
+            state.omega.z = -80;
+            state.omega.y = -20;
+            state.omega.x = 1;
+            presets.Add(("Coin toss", state, parameters));
+
+
+            parameters = default_params;
+            parameters.InnerRadius = 0.45f;
+            parameters.OuterRadius = 0.5f;
+            parameters.delta = 0.002f;
+            parameters.mu = 0.3f;
+            parameters.absorption = 0.8f;
+            parameters.g = 98;
+            parameters.m = 10f;
+            parameters.k = 500000;
+            state = default_state;
+            state.omega.z = 35;
+            state.vel.y = 20;
+            state.pos.z = 0.5f;
+            presets.Add(("Spinning coin", state, parameters));
+
+            parameters = default_params;
+            parameters.delta = 0.03;
             state = default_state;
             state.omega.x = 40;
             state.theta= Math.PI/2;
             state.pos.z = 0.1;
             presets.Add(("Stand up", state, parameters));
+
+            parameters = default_params;
+            parameters.absorption = 0.5;
+            parameters.InnerRadius = -0.3;
+            parameters.OuterRadius = 0.3;
+            parameters.delta = 0.001f;
+            parameters.k = 100000;
+            state = default_state;
+            presets.Add(("Ball", state, parameters));
         }
 
 
@@ -417,6 +419,12 @@ namespace TorusSimulation
                 e.Handled = true;
             }
 
+            if (e.Key == Key.F)
+            {
+                tbPlayPause.IsChecked = !tbPlayPause.IsChecked;
+                e.Handled = true;
+            }
+
             //ui shouldn't react to this keys
             if (e.Key == Key.W || e.Key == Key.S || e.Key == Key.A || e.Key == Key.D || e.Key == Key.Q||e.Key == Key.E)
             {
@@ -426,7 +434,6 @@ namespace TorusSimulation
         }
 
 
-        // ToggleButton handlers to update Content text (Play/Pause)
         private void TbPlayPause_Checked(object sender, RoutedEventArgs e)
         {
             if (tbPlayPause != null)
@@ -456,6 +463,8 @@ namespace TorusSimulation
             isMousePressed = true;
             prevX = (float)e.GetPosition(eng).X;
             prevY = (float)e.GetPosition(eng).Y;
+            //remove focus from other elements when clicked
+            Focus();
         }
 
         private void eng_MouseUp(object sender, MouseButtonEventArgs e)
@@ -707,25 +716,20 @@ namespace TorusSimulation
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0.01, 1000) : torusModel.parameters.m;
                 torusModel.parameters.m = value;
                 torusModel.parameters_changed();
-                SetTextBoxValue(sliderMass, value);
-                txtMass.Content = "m: " + value.ToString("0.00");
             }
             else if (box == delta)
             {
                 double parsed;
-                double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 0.2) : torusModel.parameters.delta;
+                var max= (torusModel.parameters.OuterRadius - torusModel.parameters.InnerRadius)*0.5;
+                double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, max) : torusModel.parameters.delta;
                 torusModel.parameters.delta = value;
                 torusModel.parameters_changed();
-                SetTextBoxValue(delta, value);
-                txtDelta.Content = "δ: " + value.ToString("0.000");
             }
             else if (box == stiffness)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 10000000) : torusModel.parameters.k;
                 torusModel.parameters.k = value;
-                SetTextBoxValue(stiffness, value);
-                txtK.Content = "k: " + value.ToString("0");
             }
             else if (box == mu)
             {
@@ -733,16 +737,12 @@ namespace TorusSimulation
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 5) : torusModel.parameters.mu;
                 torusModel.parameters.mu = value;
                 torusModel.parameters_changed();
-                SetTextBoxValue(mu, value);
-                txtMu.Content = "μ: " + value.ToString("0.000");
             }
             else if (box == g)
             {
                 double parsed;
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 1000) : torusModel.parameters.g;
                 torusModel.parameters.g = value;
-                SetTextBoxValue(g, value);
-                txtG.Content = "g: " + value.ToString("0.0");
             }
             else if (box == absorption)
             {
@@ -750,8 +750,6 @@ namespace TorusSimulation
                 double value = TryParseDouble(box.Text, out parsed) ? Clamp(parsed, 0, 0.9999) : torusModel.parameters.absorption;
                 torusModel.parameters.absorption = value;
                 torusModel.parameters_changed();
-                SetTextBoxValue(absorption, value);
-                txtAbsorption.Content = "Absorption: " + value.ToString("0.000");
             }
             else if (box == sliderInnerR)
             {
@@ -767,11 +765,8 @@ namespace TorusSimulation
 
                 torusModel.parameters.InnerRadius = inner;
                 torusModel.parameters.OuterRadius = outer;
+                torusModel.parameters.delta = Math.Min(torusModel.parameters.delta, (outer - inner) * 0.5);
                 torusModel.parameters_changed();
-                SetTextBoxValue(sliderInnerR, inner);
-                SetTextBoxValue(sliderOuterR, outer);
-                txtInnerR.Content = "Inner Radius: " + inner.ToString("0.000");
-                txtOuterR.Content = "Outer Radius: " + outer.ToString("0.000");
             }
             else if(box == sliderOuterR)
             {
@@ -787,12 +782,16 @@ namespace TorusSimulation
 
                 torusModel.parameters.InnerRadius = inner;
                 torusModel.parameters.OuterRadius = outer;
+                torusModel.parameters.delta = Math.Min(torusModel.parameters.delta, (outer - inner) * 0.5);
                 torusModel.parameters_changed();
                 SetTextBoxValue(sliderInnerR, inner);
                 SetTextBoxValue(sliderOuterR, outer);
                 txtInnerR.Content = "Inner Radius: " + inner.ToString("0.000");
                 txtOuterR.Content = "Outer Radius: " + outer.ToString("0.000");
             }
+
+            RefreshParameterLabels();
+            SyncParameterTextBoxes();
 
             renderingMutex.ReleaseMutex();
         }

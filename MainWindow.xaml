@@ -113,7 +113,7 @@
                     </StackPanel>
 
                     <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="DimGray" FontSize="12">
-                        Keyboard: W/S, A/D, Q/E rotate the model; Space and Left Shift change vertical speed; R resets; V toggles camera follow.
+                        Keyboard: W/S, A/D, Q/E rotate the model; Space and Left Shift change vertical speed; R resets; V toggles camera follow; F: Play/Pause.
                     </TextBlock>
                 </StackPanel>
 

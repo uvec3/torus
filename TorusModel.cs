@@ -72,7 +72,6 @@ namespace TorusSimulation
                 dmat3 M = m_az*m_ay*m_ax;
 
 
-
                 //angular velocity
                 dvec3 ax = m_az*m_ay*new dvec3(1,0,0);
                 dvec3 ay = m_az*new dvec3(0,1,0);
@@ -103,8 +102,14 @@ namespace TorusSimulation
                 //Patch where tor is touching the flat is approximated as a circle with delta radius.
                 //if delta is zero then F_G will go through (0,0,0) which means that no torque will be added by this force
                 //and, as a result, no rolling friction
+                var h=r-Math.Sqrt(r*r-p.delta*p.delta);
+
+                var Rr = R + r;
+                var delta_l = Math.Sqrt(Rr*Rr - (Rr - h) * (Rr - h));
+                // Console.WriteLine($"{R}  {r}   {h}  {p.delta}  {delta_l}");
+
                 if(touchPointVRot.Length>0)
-                    r_N -= new dvec3(touchPointVRot.xy, 0).Normalized * p.delta;
+                    r_N -=   m_az * (new dvec3(p.delta, delta_l, 0)*(m_az.Transposed * new dvec3(touchPointVRot.xy, 0).Normalized));
 
                 //normal force
                 dvec3 F_N= new dvec3(0, 0, 0);
@@ -116,7 +121,6 @@ namespace TorusSimulation
                 //Below the ground
                 else
                 {
-
                     var sqr = new Func<double,double>(x => x * x);
 
                     //calculate damping coefficient
