@@ -1,17 +1,21 @@
 # Torus Physics Simulation & Software Rasterizer
 
-A physics simulation of a torus on a flat plane, visualised through a custom-built, purely software-based raster rendering engine. 
+A physics simulation of a torus on a flat plane, visualised through a simple custom-built, purely software-based raster rendering engine. 
 
-This application is built with **C# and WPF**. All rendering logic is implemented completely from scratch using direct bitmap writing, without relying on any graphics APIs. The only external dependency is **GlmSharp**, which is used for vector algebra.
+https://github.com/user-attachments/assets/5a0b5d97-8204-46e8-b805-df01f71d8ba2
 
-### Performance
+This application is built with **C# and WPF**. All rendering logic is implemented completely from scratch using direct bitmap writing, without relying on any graphics APIs. The only external dependency is **[GlmSharp](https://www.nuget.org/packages/GlmSharp)**, which is used for vector algebra.   
+More details about the renderer in this project: https://github.com/uvec3/manipulator#rendering
+
+
+https://github.com/user-attachments/assets/5739be54-cebe-4329-b815-e4507101e304
+
+
+## Performance
 Because this is entirely software-rendered, it requires a relatively modern CPU to run smoothly.  Use only the **Release build** and run **without a debugger** for the best performance! If it is still lagging, try lowering the resolution, disabling lighting, or slowing down the simulation. Zooming out can also improve performance by reducing the number of pixels rasterised.
 
  ## Physics Simulation
 The following forces are taken into account:
-
-https://github.com/user-attachments/assets/5a0b5d97-8204-46e8-b805-df01f71d8ba2
-
 
 
 ### 1) Gravity
@@ -21,8 +25,8 @@ https://github.com/user-attachments/assets/5a0b5d97-8204-46e8-b805-df01f71d8ba2
 
 ### 2) Surface normal force
 
-Forse applied only when the torus contacts the ground, accounting for surface reaction and rolling friction simultaneously.
-Forse applied to the contact point with a small offset in the direction of rolling along the plane to create rolling friction torque.
+Force applied only when the torus contacts the ground, accounting for surface reaction and rolling friction simultaneously.
+Force applied to the contact point with a small offset in the direction of rolling along the plane to create rolling friction torque.
 
 Magnitude:
 To simulate realistic behaviour, the force is composed of two parts:
@@ -42,6 +46,8 @@ Applied when the torus touches the surface
 - Magnitude: Proportional to the normal force  
 This causes realistic spin decay.
 
+## Integaration 
+* The simulation state is integrated with **[4th-order Runge-Kutta](https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods)** on a small fixed max step (`0.0001 s`) to ensure stability.
 
 ### Tweakable Physical Parameters
 These parameters can be adjusted to achieve different effects
@@ -59,15 +65,10 @@ These parameters can be adjusted to achieve different effects
 
 It is possible to model a situation in which no energy escapes by setting mu, delta, and absorption to 0.
 
+https://github.com/user-attachments/assets/4f3cdde9-8ff8-433b-a407-50957bcac422
 
+Another case is when delta and absorption are 0, but mu is not; in this case, energy loss is very small after the initial stage, but the model can still use the friction force to transfer rotational momentum into velocity and vice versa.
 
 https://github.com/user-attachments/assets/8d0bec0b-6982-43e4-9743-f04b5dcf3579
 
-Another case is when delta and absorption are 0, but mu is not; in this case, energy loss is very small after the initial stage, but the model can still use the friction force to move.
 
-https://github.com/user-attachments/assets/4f3cdde9-8ff8-433b-a407-50957bcac422
-
-
-## Integaration 
-* Runge-Kutta Integration is used to solve motion equations.
-* The simulation state is integrated with **4th-order Runge-Kutta (RK4)** on a small fixed max step (`0.0001 s`) for stability.
